@@ -70,7 +70,8 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
         md
     )
     # 2. File load element: (())
-    md = re.sub(r'\(\(\s*\)\)', '<input type="file" id="fileLoad" />', md)
+    # Updated to include class "prompt-item" so that file inputs are included in the prompt assembly.
+    md = re.sub(r'\(\(\s*\)\)', '<input type="file" id="fileLoad" class="prompt-item" />', md)
     # 3. Inline comment: (* Comment *)
     def replace_comment(match: re.Match) -> str:
         comment_text = match.group(1).strip()
@@ -202,10 +203,23 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
 <div class="result-box" id="resultPrompt" hidden></div>
 
 <script>
-  document.getElementById("generateButton").addEventListener("click", () => {{
+  // Helper: read a File object as text, returning a Promise.
+  function readFileAsText(file) {{
+    return new Promise((resolve, reject) => {{
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    }});
+  }}
+
+  document.getElementById("generateButton").addEventListener("click", async () => {{
     const promptItems = [];
-    // Iterate over all prompt items AND any verbatim code blocks.
-    document.querySelectorAll("#promptContent .prompt-item, pre code").forEach(el => {{
+    // Select all prompt items, verbatim code blocks, and file inputs.
+    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type='file']");
+    
+    // Process each element in document order.
+    for (const el of elements) {{
       const tag = el.tagName.toLowerCase();
       if (tag === "textarea") {{
         promptItems.push(el.value);
@@ -218,11 +232,22 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
         }}
       }} else if (tag === "code") {{
         promptItems.push(el.textContent);
+      }} else if (tag === "input" && el.type === "file") {{
+        // If a file is selected, read its content asynchronously.
+        if (el.files && el.files.length > 0) {{
+          try {{
+            const fileContent = await readFileAsText(el.files[0]);
+            promptItems.push(fileContent);
+          }} catch (err) {{
+            console.error("Error reading file:", err);
+          }}
+        }}
       }}
-    }});
+    }}
     
     const prompt = promptItems.join("\\n");
     
+    // Copy to clipboard.
     navigator.clipboard.writeText(prompt)
       .then(() => {{
         alert("Copied to clipboard!");
@@ -231,6 +256,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
         alert("Failed to copy: " + err);
       }});
     
+    // Also display the generated prompt.
     const resultPromptDiv = document.getElementById("resultPrompt");
     resultPromptDiv.hidden = false;
     resultPromptDiv.textContent = prompt;
