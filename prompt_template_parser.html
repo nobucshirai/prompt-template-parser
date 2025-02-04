@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Template Parser</title>
+  <style>
+    body {
+      max-width: 800px;
+      margin: 2em auto;
+      font-family: sans-serif;
+      padding: 0 1em;
+    }
+    h1 {
+      font-size: 2em;
+      margin-bottom: 0.5em;
+    }
+    input[type="file"] {
+      margin-bottom: 1em;
+    }
+    button {
+      padding: 0.5em 1em;
+      cursor: pointer;
+      margin-bottom: 1em;
+    }
+    #message {
+      margin-top: 1em;
+      color: #333;
+    }
+  </style>
+  <script>
+    // This function converts an extended Markdown string into a complete HTML document.
+    function parseCustomMarkdown(md) {
+      let lang = "en";
+      const langMatch = md.match(/#lang:(\w+)#/);
+      if (langMatch) {
+        lang = langMatch[1];
+        md = md.replace(/#lang:\w+#/, "");
+      }
+      let title = "Document";
+      let bodyParts = [];
+
+      // Replace custom textbox: [[placeholder:prefilled text]]
+      md = md.replace(/\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]/g, function(match, placeholder, prefilled) {
+        placeholder = placeholder.trim().replace(/^"|"$/g, "");
+        prefilled = prefilled.trim();
+        return '<textarea placeholder="' + placeholder + '" class="prompt-item">' + prefilled + '</textarea>';
+      });
+
+      // Replace file load element: (())
+      md = md.replace(/\(\(\s*\)\)/g, '<input type="file" id="fileLoad" class="prompt-item" />');
+
+      // Replace inline comment: (* Comment *)
+      md = md.replace(/\(\*\s*(.*?)\s*\*\)/g, '<span class="comment" data-no-clipboard="true">$1</span>');
+
+      // Replace verbatim blocks: {{{ ... }}}
+      md = md.replace(/\{\{\{([\s\S]*?)\}\}\}/g, function(match, content) {
+        if (content.indexOf("\n") !== -1) {
+          return "\n<pre><code>" + content + "</code></pre>\n";
+        } else {
+          return "<code>" + content + "</code>";
+        }
+      });
+
+      // Process the Markdown line by line
+      const lines = md.split(/\r?\n/);
+      let i = 0;
+      while (i < lines.length) {
+        let line = lines[i].trim();
+        // Process block-level verbatim sections
+        if (line.startsWith("<pre><code>")) {
+          let verbatimLines = [];
+          while (i < lines.length) {
+            verbatimLines.push(lines[i]);
+            if (lines[i].trim().endsWith("</code></pre>")) {
+              i++;
+              break;
+            }
+            i++;
+          }
+          bodyParts.push(verbatimLines.join("\n"));
+          continue;
+        }
+        // Process header lines (e.g. "# Header")
+        if (line.startsWith("#")) {
+          const headerMatch = line.match(/^(#{1,6})\s*(.+)$/);
+          if (headerMatch) {
+            const headerLevel = headerMatch[1].length;
+            const headerText = headerMatch[2].trim();
+            if (title === "Document") {
+              title = headerText;
+            }
+            bodyParts.push('<h' + headerLevel + '>' + headerText + '</h' + headerLevel + '>');
+          }
+          i++;
+          continue;
+        }
+        // Process checkboxes (lines beginning with "[ ]" or "[x]")
+        if (/^\[(?:x|X| )\]/.test(line)) {
+          let checkboxBlock = [];
+          while (i < lines.length && /^\[(?:x|X| )\]/.test(lines[i].trim())) {
+            const cbLine = lines[i].trim();
+            const cbMatch = cbLine.match(/^\[(x|X| )\]\s*(.+)$/);
+            if (cbMatch) {
+              const status = cbMatch[1].toLowerCase().trim();
+              const labelText = cbMatch[2].trim();
+              let checkboxId = labelText.replace(/\s+/g, "").replace(/\W+/g, "");
+              const checkedAttr = (status === "x") ? " checked" : "";
+              checkboxBlock.push('<label class="prompt-item"><input type="checkbox" id="' + checkboxId + '"' + checkedAttr + ' /> ' + labelText + '</label>');
+            }
+            i++;
+          }
+          if (checkboxBlock.length > 0) {
+            bodyParts.push('<div class="checkbox-container">');
+            bodyParts.push(...checkboxBlock);
+            bodyParts.push('</div>');
+          }
+          continue;
+        }
+        // If a line starts with a textarea, ensure it has the "prompt-item" class.
+        if (line.startsWith("<textarea")) {
+          if (!line.includes("prompt-item")) {
+            line = line.replace("<textarea", '<textarea class="prompt-item"');
+          }
+          bodyParts.push(line);
+          i++;
+          continue;
+        }
+        // Wrap any non-empty line in a paragraph element.
+        if (line !== "") {
+          bodyParts.push('<p class="prompt-item">' + line + '</p>');
+        }
+        i++;
+      }
+
+      const htmlBody = '<div id="promptContent">\n' + bodyParts.join("\n") + '\n</div>';
+      const htmlOutput =
+        '<!DOCTYPE html>\n' +
+        '<html lang="' + lang + '">\n' +
+        '<head>\n' +
+        '  <meta charset="UTF-8">\n' +
+        '  <title>' + title + '</title>\n' +
+        '  <style>\n' +
+        '    body { max-width: 800px; margin: 0 auto; font-family: sans-serif; }\n' +
+        '    h1 { margin-top: 1em; font-size: 2em; }\n' +
+        '    textarea { width: 100%; height: 100px; margin-bottom: 1em; }\n' +
+        '    button { padding: 0.5em 1em; cursor: pointer; }\n' +
+        '    .result-box { white-space: pre-wrap; border: 1px solid #ddd; padding: 1em; margin-top: 1em; }\n' +
+        '    .checkbox-container { margin-bottom: 1em; }\n' +
+        '    label { display: block; margin-bottom: 0.5em; }\n' +
+        '    .comment { color: grey; }\n' +
+        '  </style>\n' +
+        '</head>\n' +
+        '<body>\n' +
+        htmlBody + '\n\n' +
+        '<button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>\n\n' +
+        '<div class="result-box" id="resultPrompt" hidden></div>\n\n' +
+        '<script>\n' +
+        '  // Helper: read a File object as text\n' +
+        '  function readFileAsText(file) {\n' +
+        '    return new Promise((resolve, reject) => {\n' +
+        '      const reader = new FileReader();\n' +
+        '      reader.onload = () => resolve(reader.result);\n' +
+        '      reader.onerror = reject;\n' +
+        '      reader.readAsText(file);\n' +
+        '    });\n' +
+        '  }\n' +
+        '\n' +
+        '  document.getElementById("generateButton").addEventListener("click", async () => {\n' +
+        '    const promptItems = [];\n' +
+        '    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type=\'file\']");\n' +
+        '    for (const el of elements) {\n' +
+        '      const tag = el.tagName.toLowerCase();\n' +
+        '      if (tag === "textarea") {\n' +
+        '        promptItems.push(el.value);\n' +
+        '      } else if (tag === "p") {\n' +
+        '        promptItems.push(el.textContent);\n' +
+        '      } else if (tag === "label") {\n' +
+        '        const checkbox = el.querySelector("input[type=\'checkbox\']");\n' +
+        '        if (checkbox && checkbox.checked) {\n' +
+        '          promptItems.push(el.textContent.trim());\n' +
+        '        }\n' +
+        '      } else if (tag === "code") {\n' +
+        '        promptItems.push(el.textContent);\n' +
+        '      } else if (tag === "input" && el.type === "file") {\n' +
+        '        if (el.files && el.files.length > 0) {\n' +
+        '          try {\n' +
+        '            const fileContent = await readFileAsText(el.files[0]);\n' +
+        '            promptItems.push(fileContent);\n' +
+        '          } catch (err) {\n' +
+        '            console.error("Error reading file:", err);\n' +
+        '          }\n' +
+        '        }\n' +
+        '      }\n' +
+        '    }\n' +
+        '    const prompt = promptItems.join("\\n");\n' +
+        '    navigator.clipboard.writeText(prompt)\n' +
+        '      .then(() => { alert("Prompt copied to clipboard!"); })\n' +
+        '      .catch((err) => { alert("Failed to copy: " + err); });\n' +
+        '    const resultPromptDiv = document.getElementById("resultPrompt");\n' +
+        '    resultPromptDiv.hidden = false;\n' +
+        '    resultPromptDiv.textContent = prompt;\n' +
+        '  });\n' +
+        '<\/script>\n' +
+        '\n</body>\n' +
+        '</html>';
+      return htmlOutput;
+    }
+  </script>
+</head>
+<body>
+  <h1>Prompt Template Parser</h1>
+  <p>Select a Markdown file (with extended syntax) and click the button below to generate the HTML file.</p>
+  <input type="file" id="markdownFileInput" accept=".md">
+  <br>
+  <button id="processButton">Generate and Download HTML</button>
+  <div id="message"></div>
+  <script>
+    document.getElementById("processButton").addEventListener("click", () => {
+      const fileInput = document.getElementById("markdownFileInput");
+      const messageDiv = document.getElementById("message");
+      messageDiv.textContent = "";
+      if (!fileInput.files || fileInput.files.length === 0) {
+        messageDiv.textContent = "Please select a Markdown (.md) file first.";
+        return;
+      }
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const mdContent = e.target.result;
+          const htmlContent = parseCustomMarkdown(mdContent);
+          // Create a Blob for the generated HTML and trigger a download.
+          const blob = new Blob([htmlContent], { type: "text/html" });
+          const baseName = file.name.replace(/\.md$/i, "");
+          const outputFilename = baseName + ".html";
+          const url = URL.createObjectURL(blob);
+          const downloadLink = document.createElement("a");
+          downloadLink.href = url;
+          downloadLink.download = outputFilename;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(url);
+          messageDiv.textContent = "HTML file generated and downloaded: " + outputFilename;
+        } catch (err) {
+          console.error(err);
+          messageDiv.textContent = "An error occurred while processing the file.";
+        }
+      };
+      reader.onerror = function() {
+        messageDiv.textContent = "Failed to read file.";
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
