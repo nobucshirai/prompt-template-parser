@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CLI Tool Prompt Generator</title>
+  <style>
+    body {
+      max-width: 800px;
+      margin: 0 auto;
+      font-family: sans-serif;
+    }
+    h1 {
+      margin-top: 1em;
+      font-size: 2em;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-bottom: 1em;
+    }
+    button {
+      padding: 0.5em 1em;
+      cursor: pointer;
+    }
+    .result-box {
+      white-space: pre-wrap;
+      border: 1px solid #ddd;
+      padding: 1em;
+      margin-top: 1em;
+    }
+    .checkbox-container {
+      margin-bottom: 1em;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5em;
+    }
+    .comment {
+      color: grey;
+    }
+  </style>
+</head>
+<body>
+<div id="promptContent">
+<h1>CLI Tool Prompt Generator</h1>
+<textarea class="prompt-item" id="textbox" placeholder="Enter your prompt here">Please generate a python3 script to</textarea>
+<p class="prompt-item">I would like to add some additional specifications below.</p>
+<div class="checkbox-container">
+<label class="prompt-item"><input type="checkbox" id="Addahelpoptionusingargparse" checked /> Add a help option using `argparse`.</label>
+<label class="prompt-item"><input type="checkbox" id="Adddocstringsandtypehints" checked /> - Add docstrings and type hints.</label>
+<label class="prompt-item"><input type="checkbox" id="Acceptinputfilesasargumentsofthescriptwithoutanyoptionflag" checked /> - Accept input files as arguments of the script without any option flag.</label>
+<label class="prompt-item"><input type="checkbox" id="Addanoptiontospecifytheoutputfilename" checked /> - Add an option to specify the output filename.</label>
+<label class="prompt-item"><input type="checkbox" id="Defaultfilenameshouldhavethesamebasenameastheinputfile" checked /> - Default filename should have the same basename as the input file.</label>
+<label class="prompt-item"><input type="checkbox" id="Outputthetexttostdoutifthereisnospecifiedoutputfilename" /> - Output the text to stdout if there is no specified output filename.</label>
+<label class="prompt-item"><input type="checkbox" id="Suggestsomepotentialfilenamesforthescript" checked /> - Suggest some potential filenames for the script.</label>
+<label class="prompt-item"><input type="checkbox" id="Askyesnobeforeoverwritinganexistingfiledefaultno" checked /> - Ask "(y)es/(n)o" before overwriting an existing file (default: no).</label>
+<label class="prompt-item"><input type="checkbox" id="Addthefollowingshebang" checked /> - Add the following shebang:</label>
+</div>
+<pre><code>```
+#!/usr/bin/env python3
+```</code></pre>
+</div>
+
+<button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>
+
+<div class="result-box" id="resultPrompt" hidden></div>
+
+<script>
+  // Helper: read a File object as text, returning a Promise.
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  }
+
+  document.getElementById("generateButton").addEventListener("click", async () => {
+    const promptItems = [];
+    // Select all prompt items, verbatim code blocks, and file inputs.
+    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type='file']");
+    
+    // Process each element in document order.
+    for (const el of elements) {
+      const tag = el.tagName.toLowerCase();
+      if (tag === "textarea") {
+        promptItems.push(el.value);
+      } else if (tag === "p") {
+        promptItems.push(el.textContent);
+      } else if (tag === "label") {
+        const checkbox = el.querySelector("input[type='checkbox']");
+        if (checkbox && checkbox.checked) {
+          promptItems.push(el.textContent.trim());
+        }
+      } else if (tag === "code") {
+        promptItems.push(el.textContent);
+      } else if (tag === "input" && el.type === "file") {
+        // If a file is selected, read its content asynchronously.
+        if (el.files && el.files.length > 0) {
+          try {
+            const fileContent = await readFileAsText(el.files[0]);
+            promptItems.push(fileContent);
+          } catch (err) {
+            console.error("Error reading file:", err);
+          }
+        }
+      }
+    }
+    
+    const prompt = promptItems.join("\n");
+    
+    // Copy to clipboard.
+    navigator.clipboard.writeText(prompt)
+      .then(() => {
+        alert("Copied to clipboard!");
+      })
+      .catch((err) => {
+        alert("Failed to copy: " + err);
+      });
+    
+    // Also display the generated prompt.
+    const resultPromptDiv = document.getElementById("resultPrompt");
+    resultPromptDiv.hidden = false;
+    resultPromptDiv.textContent = prompt;
+  });
+</script>
+
+</body>
+</html>
