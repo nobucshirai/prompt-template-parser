@@ -6,6 +6,7 @@
 
 - Converts Markdown-like syntax into structured HTML.
 - Supports custom elements like:
+  - Inline integer inputs (`<<integer_value>>`)
   - Text inputs (`[[label: default text]]`)
   - Checkboxes (`[x] Checked` / `[ ] Unchecked`)
   - File upload inputs (`(())`)
