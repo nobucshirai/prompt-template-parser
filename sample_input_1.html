@@ -38,18 +38,29 @@
     .comment {
       color: grey;
     }
+    /* Inline number textbox style */
+    .inline-input {
+      width: 3em;
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
 <div id="promptContent">
 <h1>Prompt Creation Assistance Tool</h1>
 <p class="prompt-item">Based on the meeting minutes format shown below, format the transcript into structured meeting minutes. Use this format as a reference to appropriately organize the agenda, participants, discussion details, and conclusions.</p>
-<h2>Meeting Minutes Format</h2>
+<p class="prompt-item">Meeting Minutes Format</p>
+<p class="prompt-item">~~~</p>
 <textarea class="prompt-item" id="textbox" placeholder="Meeting Minutes Format"></textarea>
 <p class="prompt-item"><input type="file" id="fileLoad" class="prompt-item" /></p>
-<h2>Transcript</h2>
+<p class="prompt-item">~~~</p>
+<p class="prompt-item">Transcript</p>
+<p class="prompt-item">~~~</p>
 <textarea class="prompt-item" id="textbox" placeholder="Transcript"></textarea>
 <p class="prompt-item"><input type="file" id="fileLoad" class="prompt-item" /></p>
+<p class="prompt-item">~~~</p>
 </div>
 
 <button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>
@@ -67,6 +78,23 @@
     });
   }
 
+  // Helper: get combined text from an element.
+  // This function walks through the child nodes so that any inline inputs
+  // are replaced with their current value.
+  function getElementText(el) {
+    let text = "";
+    el.childNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE &&
+          node.tagName.toLowerCase() === "input" &&
+          node.type !== "file") {
+        text += node.value;
+      } else {
+        text += node.textContent;
+      }
+    });
+    return text.replace(/\s+/g, " ").trim();
+  }
+
   document.getElementById("generateButton").addEventListener("click", async () => {
     const promptItems = [];
     // Select all prompt items, verbatim code blocks, and file inputs.
@@ -78,7 +106,8 @@
       if (tag === "textarea") {
         promptItems.push(el.value);
       } else if (tag === "p") {
-        promptItems.push(el.textContent);
+        // Use the helper so inline inputs are merged into the paragraph’s text.
+        promptItems.push(getElementText(el));
       } else if (tag === "label") {
         const checkbox = el.querySelector("input[type='checkbox']");
         if (checkbox && checkbox.checked) {
