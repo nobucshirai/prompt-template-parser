@@ -5,7 +5,7 @@
 
 I would like to add some additional specifications below.
 
-[x] Add a help option using `argparse`.  
+[x] - Add a help option using `argparse`.  
 [x] - Add docstrings and type hints.  
 [x] - Accept input files as arguments of the script without any option flag.  
 [x] - Add an option to specify the output filename.  

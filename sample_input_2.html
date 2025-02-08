@@ -38,6 +38,13 @@
     .comment {
       color: grey;
     }
+    /* Inline number textbox style */
+    .inline-input {
+      width: 3em;
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -46,7 +53,7 @@
 <textarea class="prompt-item" id="textbox" placeholder="Enter your prompt here">Please generate a python3 script to</textarea>
 <p class="prompt-item">I would like to add some additional specifications below.</p>
 <div class="checkbox-container">
-<label class="prompt-item"><input type="checkbox" id="Addahelpoptionusingargparse" checked /> Add a help option using `argparse`.</label>
+<label class="prompt-item"><input type="checkbox" id="Addahelpoptionusingargparse" checked /> - Add a help option using `argparse`.</label>
 <label class="prompt-item"><input type="checkbox" id="Adddocstringsandtypehints" checked /> - Add docstrings and type hints.</label>
 <label class="prompt-item"><input type="checkbox" id="Acceptinputfilesasargumentsofthescriptwithoutanyoptionflag" checked /> - Accept input files as arguments of the script without any option flag.</label>
 <label class="prompt-item"><input type="checkbox" id="Addanoptiontospecifytheoutputfilename" checked /> - Add an option to specify the output filename.</label>
@@ -76,6 +83,23 @@
     });
   }
 
+  // Helper: get combined text from an element.
+  // This function walks through the child nodes so that any inline inputs
+  // are replaced with their current value.
+  function getElementText(el) {
+    let text = "";
+    el.childNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE &&
+          node.tagName.toLowerCase() === "input" &&
+          node.type !== "file") {
+        text += node.value;
+      } else {
+        text += node.textContent;
+      }
+    });
+    return text.replace(/\s+/g, " ").trim();
+  }
+
   document.getElementById("generateButton").addEventListener("click", async () => {
     const promptItems = [];
     // Select all prompt items, verbatim code blocks, and file inputs.
@@ -87,7 +111,8 @@
       if (tag === "textarea") {
         promptItems.push(el.value);
       } else if (tag === "p") {
-        promptItems.push(el.textContent);
+        // Use the helper so inline inputs are merged into the paragraph’s text.
+        promptItems.push(getElementText(el));
       } else if (tag === "label") {
         const checkbox = el.querySelector("input[type='checkbox']");
         if (checkbox && checkbox.checked) {
