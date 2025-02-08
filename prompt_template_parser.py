@@ -14,10 +14,8 @@ In addition to standard Markdown syntax, the following custom elements are suppo
 - (* Comment *) → Renders as visible text in HTML but is excluded from clipboard copying.
 - #lang:jp# → Specifies the language for localization (default: "en").
 - Verbatim blocks: {{{ ... }}} → Content is preserved exactly. Multi-line blocks are wrapped in <pre><code>, while single-line content is rendered inline with <code>.
-
-The generated HTML includes inline CSS for styling and JavaScript that
-assembles the final prompt by extracting text from textboxes, paragraphs, checkboxes,
-and verbatim code blocks. The compiled prompt can then be copied to the clipboard.
+- **New:** <<integer_value>> → Inserts a small inline number textbox with the given integer value as its default.
+  (Note: The inline number input is no longer given the "prompt-item" class so that it isn’t processed separately.)
 
 Usage:
     python3 prompt_template_parser.py input.md
@@ -41,7 +39,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     The parser:
       - Extracts a language code if specified via #lang:xx# (default: en)
       - Converts custom textarea elements, file load elements, checkboxes,
-        inline comments, and verbatim blocks.
+        inline comments, inline integer inputs, and verbatim blocks.
       - Wraps the generated body in an HTML document with inline CSS and JS.
 
     Args:
@@ -59,7 +57,15 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     title: str = "Document"
     body_parts: list[str] = []
 
-    # 1. Textbox: [[placeholder:prefilled text]]
+    # 1. Inline integer input: <<integer_value>>
+    # NOTE: Removed "prompt-item" from the input so it remains inline.
+    md = re.sub(
+        r'<<\s*(?P<value>\d+)\s*>>',
+        lambda m: '<input type="number" class="inline-input" value="{}" min="1" />'.format(m.group('value')),
+        md
+    )
+
+    # 2. Textbox: [[placeholder:prefilled text]]
     def replace_textarea(match: re.Match) -> str:
         placeholder = match.group('placeholder').strip().strip('"')
         prefilled = match.group('prefilled').strip()
@@ -69,16 +75,18 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
         replace_textarea, 
         md
     )
-    # 2. File load element: (())
+
+    # 3. File load element: (())
     # Updated to include class "prompt-item" so that file inputs are included in the prompt assembly.
     md = re.sub(r'\(\(\s*\)\)', '<input type="file" id="fileLoad" class="prompt-item" />', md)
-    # 3. Inline comment: (* Comment *)
+
+    # 4. Inline comment: (* Comment *)
     def replace_comment(match: re.Match) -> str:
         comment_text = match.group(1).strip()
         return f'<span class="comment" data-no-clipboard="true">{comment_text}</span>'
     md = re.sub(r'\(\*\s*(.*?)\s*\*\)', replace_comment, md)
 
-    # 4. Verbatim blocks: {{{ ... }}}
+    # 5. Verbatim blocks: {{{ ... }}}
     def replace_verbatim(match: re.Match) -> str:
         content = match.group(1)
         if "\n" in content:
@@ -193,6 +201,13 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     .comment {{
       color: grey;
     }}
+    /* Inline number textbox style */
+    .inline-input {{
+      width: 3em;
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }}
   </style>
 </head>
 <body>
@@ -213,6 +228,23 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     }});
   }}
 
+  // Helper: get combined text from an element.
+  // This function walks through the child nodes so that any inline inputs
+  // are replaced with their current value.
+  function getElementText(el) {{
+    let text = "";
+    el.childNodes.forEach(node => {{
+      if (node.nodeType === Node.ELEMENT_NODE &&
+          node.tagName.toLowerCase() === "input" &&
+          node.type !== "file") {{
+        text += node.value;
+      }} else {{
+        text += node.textContent;
+      }}
+    }});
+    return text.replace(/\\s+/g, " ").trim();
+  }}
+
   document.getElementById("generateButton").addEventListener("click", async () => {{
     const promptItems = [];
     // Select all prompt items, verbatim code blocks, and file inputs.
@@ -224,7 +256,8 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
       if (tag === "textarea") {{
         promptItems.push(el.value);
       }} else if (tag === "p") {{
-        promptItems.push(el.textContent);
+        // Use the helper so inline inputs are merged into the paragraph’s text.
+        promptItems.push(getElementText(el));
       }} else if (tag === "label") {{
         const checkbox = el.querySelector("input[type='checkbox']");
         if (checkbox && checkbox.checked) {{
