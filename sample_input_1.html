@@ -98,7 +98,7 @@ textarea {
     let text = "";
     el.childNodes.forEach(node => {
       if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === "input") {
-        if (node.type === "text") {
+        if (node.type === "text" || node.type === "number") {
           text += node.value;
         }
       } else {
