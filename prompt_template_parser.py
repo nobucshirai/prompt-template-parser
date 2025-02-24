@@ -9,6 +9,7 @@ that can be compiled into a cohesive text prompt.
 In addition to standard Markdown syntax, the following custom elements are supported:
 
 - [[[background text:prefilled text]]] → Converts to a textbox input.
+- [[background text:prefilled text]] → Converts to an inline text box input.
 - (()) → Converts to a file load input element.
 - [ ] and [x] → Converts to unchecked/checked checkboxes.
 - (* Comment *) → Renders as visible text in HTML but is excluded from clipboard copying.
@@ -39,7 +40,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     The parser:
       - Extracts a language code if specified via #lang:xx# (default: en)
       - Converts custom textarea elements, file load elements, checkboxes,
-        inline comments, inline integer inputs, and verbatim blocks.
+        inline comments, inline integer inputs, inline text inputs, and verbatim blocks.
       - Wraps the generated body in an HTML document with inline CSS and JS.
 
     Args:
@@ -73,6 +74,18 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     md = re.sub(
         r'\[\[\[\s*(?P<placeholder>[^:]+?)\s*:\s*(?P<prefilled>.*?)\s*\]\]\]', 
         replace_textarea, 
+        md
+    )
+
+    # 2.1. Inline text box: [[placeholder:prefilled text]]
+    def replace_inline_textbox(match: re.Match) -> str:
+        placeholder = match.group('placeholder').strip().strip('"')
+        prefilled = match.group('prefilled').strip()
+        # Removed the "prompt-item" class to prevent duplicate copying.
+        return f'<input type="text" class="inline-text" placeholder="{placeholder}" value="{prefilled}" />'
+    md = re.sub(
+        r'\[\[\s*(?P<placeholder>[^:]+?)\s*:\s*(?P<prefilled>.*?)\s*\]\]',
+        replace_inline_textbox,
         md
     )
 
@@ -181,6 +194,11 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
       height: 100px;
       margin-bottom: 1em;
     }}
+    input.inline-text {{
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }}
     button {{
       padding: 0.5em 1em;
       cursor: pointer;
@@ -275,6 +293,8 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
             console.error("Error reading file:", err);
           }}
         }}
+      }} else if (tag === "input" && el.type === "text") {{
+        promptItems.push(el.value);
       }}
     }}
     
