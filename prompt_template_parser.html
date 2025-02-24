@@ -14,6 +14,22 @@
       font-size: 2em;
       margin-bottom: 0.5em;
     }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-bottom: 1em;
+    }
+    input.inline-text {
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }
+    .inline-input {
+      width: 3em;
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }
     input[type="file"] {
       margin-bottom: 1em;
     }
@@ -22,9 +38,21 @@
       cursor: pointer;
       margin-bottom: 1em;
     }
-    #message {
+    .result-box {
+      white-space: pre-wrap;
+      border: 1px solid #ddd;
+      padding: 1em;
       margin-top: 1em;
-      color: #333;
+    }
+    .checkbox-container {
+      margin-bottom: 1em;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5em;
+    }
+    .comment {
+      color: grey;
     }
   </style>
   <script>
@@ -39,11 +67,23 @@
       let title = "Document";
       let bodyParts = [];
 
-      // Replace custom textbox: [[placeholder:prefilled text]]
-      md = md.replace(/\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]/g, function(match, placeholder, prefilled) {
+      // Replace inline integer input: <<integer_value>>
+      md = md.replace(/<<\s*(\d+)\s*>>/g, function(match, value) {
+        return '<input type="number" class="inline-input" value="' + value + '" min="1" />';
+      });
+
+      // Replace triple-bracket textbox: [[[placeholder:prefilled text]]]
+      md = md.replace(/\[\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]\]/g, function(match, placeholder, prefilled) {
         placeholder = placeholder.trim().replace(/^"|"$/g, "");
         prefilled = prefilled.trim();
         return '<textarea placeholder="' + placeholder + '" class="prompt-item">' + prefilled + '</textarea>';
+      });
+
+      // Replace inline text box: [[placeholder:prefilled text]]
+      md = md.replace(/\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]/g, function(match, placeholder, prefilled) {
+        placeholder = placeholder.trim().replace(/^"|"$/g, "");
+        prefilled = prefilled.trim();
+        return '<input type="text" class="inline-text" placeholder="' + placeholder + '" value="' + prefilled + '" />';
       });
 
       // Replace file load element: (())
@@ -66,6 +106,7 @@
       let i = 0;
       while (i < lines.length) {
         let line = lines[i].trim();
+
         // Process block-level verbatim sections
         if (line.startsWith("<pre><code>")) {
           let verbatimLines = [];
@@ -80,6 +121,7 @@
           bodyParts.push(verbatimLines.join("\n"));
           continue;
         }
+
         // Process header lines (e.g. "# Header")
         if (line.startsWith("#")) {
           const headerMatch = line.match(/^(#{1,6})\s*(.+)$/);
@@ -94,6 +136,7 @@
           i++;
           continue;
         }
+
         // Process checkboxes (lines beginning with "[ ]" or "[x]")
         if (/^\[(?:x|X| )\]/.test(line)) {
           let checkboxBlock = [];
@@ -116,6 +159,7 @@
           }
           continue;
         }
+
         // If a line starts with a textarea, ensure it has the "prompt-item" class.
         if (line.startsWith("<textarea")) {
           if (!line.includes("prompt-item")) {
@@ -125,6 +169,7 @@
           i++;
           continue;
         }
+
         // Wrap any non-empty line in a paragraph element.
         if (line !== "") {
           bodyParts.push('<p class="prompt-item">' + line + '</p>');
@@ -143,6 +188,8 @@
         '    body { max-width: 800px; margin: 0 auto; font-family: sans-serif; }\n' +
         '    h1 { margin-top: 1em; font-size: 2em; }\n' +
         '    textarea { width: 100%; height: 100px; margin-bottom: 1em; }\n' +
+        '    input.inline-text { padding: 2px; font-size: 1em; text-align: center; }\n' +
+        '    .inline-input { width: 3em; padding: 2px; font-size: 1em; text-align: center; }\n' +
         '    button { padding: 0.5em 1em; cursor: pointer; }\n' +
         '    .result-box { white-space: pre-wrap; border: 1px solid #ddd; padding: 1em; margin-top: 1em; }\n' +
         '    .checkbox-container { margin-bottom: 1em; }\n' +
@@ -164,10 +211,9 @@
         '      reader.readAsText(file);\n' +
         '    });\n' +
         '  }\n' +
-        '\n' +
         '  document.getElementById("generateButton").addEventListener("click", async () => {\n' +
         '    const promptItems = [];\n' +
-        '    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type=\'file\']");\n' +
+        '    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type=\'file\'], input[type=\'text\']");\n' +
         '    for (const el of elements) {\n' +
         '      const tag = el.tagName.toLowerCase();\n' +
         '      if (tag === "textarea") {\n' +
@@ -190,6 +236,8 @@
         '            console.error("Error reading file:", err);\n' +
         '          }\n' +
         '        }\n' +
+        '      } else if (tag === "input" && el.type === "text") {\n' +
+        '        promptItems.push(el.value);\n' +
         '      }\n' +
         '    }\n' +
         '    const prompt = promptItems.join("\\n");\n' +
