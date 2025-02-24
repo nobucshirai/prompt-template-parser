@@ -59,7 +59,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     body_parts: list[str] = []
 
     # 1. Inline integer input: <<integer_value>>
-    # NOTE: Removed "prompt-item" from the input so it remains inline.
+    # NOTE: Removed "prompt-item" so it remains inline.
     md = re.sub(
         r'<<\s*(?P<value>\d+)\s*>>',
         lambda m: '<input type="number" class="inline-input" value="{}" min="1" />'.format(m.group('value')),
@@ -103,10 +103,10 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     def replace_verbatim(match: re.Match) -> str:
         content = match.group(1)
         if "\n" in content:
-            # Block-level verbatim: preserve all whitespace and newlines
+            # Block-level verbatim: preserve whitespace and newlines.
             return f'\n<pre><code>{content}</code></pre>\n'
         else:
-            # Inline verbatim
+            # Inline verbatim.
             return f'<code>{content}</code>'
     md = re.sub(r'\{\{\{(.*?)\}\}\}', replace_verbatim, md, flags=re.DOTALL)
 
@@ -174,59 +174,81 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
 
     html_body = "<div id=\"promptContent\">\n" + "\n".join(body_parts) + "\n</div>"
 
+    # Build a dynamic <style> block including only the rules for elements that appear in the HTML.
+    style_rules = []
+
+    # Always include basic body styling.
+    style_rules.append("""body {
+      max-width: 800px;
+      margin: 0 auto;
+      font-family: sans-serif;
+    }""")
+
+    if "<h1>" in html_body:
+       style_rules.append("""h1 {
+      margin-top: 1em;
+      font-size: 2em;
+    }""")
+
+    if "<textarea" in html_body:
+       style_rules.append("""textarea {
+      width: 100%;
+      height: 100px;
+      margin-bottom: 1em;
+    }""")
+
+    if 'class="inline-text"' in html_body:
+       style_rules.append("""input.inline-text {
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }""")
+
+    if "<button" in html_body:
+       style_rules.append("""button {
+      padding: 0.5em 1em;
+      cursor: pointer;
+    }""")
+
+    style_rules.append(""".result-box {
+      white-space: pre-wrap;
+      border: 1px solid #ddd;
+      padding: 1em;
+      margin-top: 1em;
+    }""")
+
+    if 'class="checkbox-container"' in html_body:
+       style_rules.append(""".checkbox-container {
+      margin-bottom: 1em;
+    }""")
+
+    if "<label" in html_body:
+       style_rules.append("""label {
+      display: block;
+      margin-bottom: 0.5em;
+    }""")
+
+    if 'class="comment"' in html_body:
+       style_rules.append(""".comment {
+      color: grey;
+    }""")
+
+    if 'class="inline-input"' in html_body:
+       style_rules.append(""".inline-input {
+      width: 3em;
+      padding: 2px;
+      font-size: 1em;
+      text-align: center;
+    }""")
+
+    style_block = "<style>\n" + "\n".join(style_rules) + "\n</style>"
+
     html_output = f'''<!DOCTYPE html>
 <html lang="{lang}">
 <head>
   <meta charset="UTF-8" />
   <title>{title}</title>
-  <style>
-    body {{
-      max-width: 800px;
-      margin: 0 auto;
-      font-family: sans-serif;
-    }}
-    h1 {{
-      margin-top: 1em;
-      font-size: 2em;
-    }}
-    textarea {{
-      width: 100%;
-      height: 100px;
-      margin-bottom: 1em;
-    }}
-    input.inline-text {{
-      padding: 2px;
-      font-size: 1em;
-      text-align: center;
-    }}
-    button {{
-      padding: 0.5em 1em;
-      cursor: pointer;
-    }}
-    .result-box {{
-      white-space: pre-wrap;
-      border: 1px solid #ddd;
-      padding: 1em;
-      margin-top: 1em;
-    }}
-    .checkbox-container {{
-      margin-bottom: 1em;
-    }}
-    label {{
-      display: block;
-      margin-bottom: 0.5em;
-    }}
-    .comment {{
-      color: grey;
-    }}
-    /* Inline number textbox style */
-    .inline-input {{
-      width: 3em;
-      padding: 2px;
-      font-size: 1em;
-      text-align: center;
-    }}
-  </style>
+  {style_block}
 </head>
 <body>
 {html_body}
