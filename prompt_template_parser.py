@@ -15,7 +15,7 @@ In addition to standard Markdown syntax, the following custom elements are suppo
 - (* Comment *) → Renders as visible text in HTML but is excluded from clipboard copying.
 - #lang:jp# → Specifies the language for localization (default: "en").
 - Verbatim blocks: {{{ ... }}} → Content is preserved exactly. Multi-line blocks are wrapped in <pre><code>, while single-line content is rendered inline with <code>.
-- **New:** <<integer_value>> → Inserts a small inline number textbox with the given integer value as its default.
+- <<integer_value>> → Inserts a small inline number textbox with the given integer value as its default.
   (Note: The inline number input is no longer given the "prompt-item" class so that it isn’t processed separately.)
 
 Usage:
@@ -243,6 +243,82 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
 
     style_block = "<style>\n" + "\n".join(style_rules) + "\n</style>"
 
+    # Determine which features are present so we only output the necessary JavaScript.
+    has_file_input = '<input type="file"' in html_body
+    has_inline_input = 'class="inline-text"' in html_body
+
+    # Build the script block dynamically.
+    script_parts = []
+    script_parts.append("<script>\n(function(){\n")
+    script_parts.append("  document.getElementById(\"generateButton\").addEventListener(\"click\", async () => {\n")
+    script_parts.append("    const promptItems = [];\n")
+    if has_file_input:
+        script_parts.append("    const elements = document.querySelectorAll(\"#promptContent .prompt-item, pre code, input[type='file']\");\n")
+    else:
+        script_parts.append("    const elements = document.querySelectorAll(\"#promptContent .prompt-item, pre code\");\n")
+    script_parts.append("    for (const el of elements) {\n")
+    script_parts.append("      const tag = el.tagName.toLowerCase();\n")
+    script_parts.append("      if (tag === \"textarea\") {\n")
+    script_parts.append("        promptItems.push(el.value);\n")
+    script_parts.append("      } else if (tag === \"p\") {\n")
+    if has_inline_input:
+        script_parts.append("        promptItems.push(getElementText(el));\n")
+    else:
+        script_parts.append("        promptItems.push(el.textContent);\n")
+    script_parts.append("      } else if (tag === \"label\") {\n")
+    script_parts.append("        const checkbox = el.querySelector(\"input[type='checkbox']\");\n")
+    script_parts.append("        if (checkbox && checkbox.checked) {\n")
+    script_parts.append("          promptItems.push(el.textContent.trim());\n")
+    script_parts.append("        }\n")
+    script_parts.append("      } else if (tag === \"code\") {\n")
+    script_parts.append("        promptItems.push(el.textContent);\n")
+    script_parts.append("      } else if (tag === \"input\" && el.type === \"text\") {\n")
+    script_parts.append("        promptItems.push(el.value);\n")
+    script_parts.append("      }\n")
+    if has_file_input:
+        script_parts.append("      else if (tag === \"input\" && el.type === \"file\") {\n")
+        script_parts.append("        if (el.files && el.files.length > 0) {\n")
+        script_parts.append("          try {\n")
+        script_parts.append("            const fileContent = await readFileAsText(el.files[0]);\n")
+        script_parts.append("            promptItems.push(fileContent);\n")
+        script_parts.append("          } catch (err) {\n")
+        script_parts.append("            console.error(\"Error reading file:\", err);\n")
+        script_parts.append("          }\n")
+        script_parts.append("        }\n")
+        script_parts.append("      }\n")
+    script_parts.append("    }\n")
+    script_parts.append("    const prompt = promptItems.join(\"\\n\");\n")
+    script_parts.append("    navigator.clipboard.writeText(prompt)\n")
+    script_parts.append("      .then(() => { alert(\"Copied to clipboard!\"); })\n")
+    script_parts.append("      .catch((err) => { alert(\"Failed to copy: \" + err); });\n")
+    script_parts.append("    const resultPromptDiv = document.getElementById(\"resultPrompt\");\n")
+    script_parts.append("    resultPromptDiv.hidden = false;\n")
+    script_parts.append("    resultPromptDiv.textContent = prompt;\n")
+    script_parts.append("  });\n")
+    if has_file_input:
+        script_parts.append("\n  function readFileAsText(file) {\n")
+        script_parts.append("    return new Promise((resolve, reject) => {\n")
+        script_parts.append("      const reader = new FileReader();\n")
+        script_parts.append("      reader.onload = () => resolve(reader.result);\n")
+        script_parts.append("      reader.onerror = reject;\n")
+        script_parts.append("      reader.readAsText(file);\n")
+        script_parts.append("    });\n")
+        script_parts.append("  }\n")
+    if has_inline_input:
+        script_parts.append("\n  function getElementText(el) {\n")
+        script_parts.append("    let text = \"\";\n")
+        script_parts.append("    el.childNodes.forEach(node => {\n")
+        script_parts.append("      if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === \"input\" && node.type !== \"file\") {\n")
+        script_parts.append("        text += node.value;\n")
+        script_parts.append("      } else {\n")
+        script_parts.append("        text += node.textContent;\n")
+        script_parts.append("      }\n")
+        script_parts.append("    });\n")
+        script_parts.append("    return text.replace(/\\s+/g, \" \").trim();\n")
+        script_parts.append("  }\n")
+    script_parts.append("})();\n</script>")
+    script_block = "".join(script_parts)
+
     html_output = f'''<!DOCTYPE html>
 <html lang="{lang}">
 <head>
@@ -257,86 +333,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
 
 <div class="result-box" id="resultPrompt" hidden></div>
 
-<script>
-  // Helper: read a File object as text, returning a Promise.
-  function readFileAsText(file) {{
-    return new Promise((resolve, reject) => {{
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    }});
-  }}
-
-  // Helper: get combined text from an element.
-  // This function walks through the child nodes so that any inline inputs
-  // are replaced with their current value.
-  function getElementText(el) {{
-    let text = "";
-    el.childNodes.forEach(node => {{
-      if (node.nodeType === Node.ELEMENT_NODE &&
-          node.tagName.toLowerCase() === "input" &&
-          node.type !== "file") {{
-        text += node.value;
-      }} else {{
-        text += node.textContent;
-      }}
-    }});
-    return text.replace(/\\s+/g, " ").trim();
-  }}
-
-  document.getElementById("generateButton").addEventListener("click", async () => {{
-    const promptItems = [];
-    // Select all prompt items, verbatim code blocks, and file inputs.
-    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type='file']");
-    
-    // Process each element in document order.
-    for (const el of elements) {{
-      const tag = el.tagName.toLowerCase();
-      if (tag === "textarea") {{
-        promptItems.push(el.value);
-      }} else if (tag === "p") {{
-        // Use the helper so inline inputs are merged into the paragraph’s text.
-        promptItems.push(getElementText(el));
-      }} else if (tag === "label") {{
-        const checkbox = el.querySelector("input[type='checkbox']");
-        if (checkbox && checkbox.checked) {{
-          promptItems.push(el.textContent.trim());
-        }}
-      }} else if (tag === "code") {{
-        promptItems.push(el.textContent);
-      }} else if (tag === "input" && el.type === "file") {{
-        // If a file is selected, read its content asynchronously.
-        if (el.files && el.files.length > 0) {{
-          try {{
-            const fileContent = await readFileAsText(el.files[0]);
-            promptItems.push(fileContent);
-          }} catch (err) {{
-            console.error("Error reading file:", err);
-          }}
-        }}
-      }} else if (tag === "input" && el.type === "text") {{
-        promptItems.push(el.value);
-      }}
-    }}
-    
-    const prompt = promptItems.join("\\n");
-    
-    // Copy to clipboard.
-    navigator.clipboard.writeText(prompt)
-      .then(() => {{
-        alert("Copied to clipboard!");
-      }})
-      .catch((err) => {{
-        alert("Failed to copy: " + err);
-      }});
-    
-    // Also display the generated prompt.
-    const resultPromptDiv = document.getElementById("resultPrompt");
-    resultPromptDiv.hidden = false;
-    resultPromptDiv.textContent = prompt;
-  }});
-</script>
+{script_block}
 
 </body>
 </html>
