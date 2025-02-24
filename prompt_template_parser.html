@@ -69,20 +69,23 @@
 
       // Replace inline integer input: <<integer_value>>
       md = md.replace(/<<\s*(\d+)\s*>>/g, function(match, value) {
+        // Note: No extra "prompt-item" class so inline inputs are handled as part of their container.
         return '<input type="number" class="inline-input" value="' + value + '" min="1" />';
       });
 
       // Replace triple-bracket textbox: [[[placeholder:prefilled text]]]
+      // Updated: adds an id ("textbox") and omits the "prompt-item" class.
       md = md.replace(/\[\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]\]/g, function(match, placeholder, prefilled) {
         placeholder = placeholder.trim().replace(/^"|"$/g, "");
         prefilled = prefilled.trim();
-        return '<textarea placeholder="' + placeholder + '" class="prompt-item">' + prefilled + '</textarea>';
+        return '<textarea id="textbox" placeholder="' + placeholder + '">' + prefilled + '</textarea>';
       });
 
       // Replace inline text box: [[placeholder:prefilled text]]
       md = md.replace(/\[\[\s*([^:]+?)\s*:\s*(.*?)\s*\]\]/g, function(match, placeholder, prefilled) {
         placeholder = placeholder.trim().replace(/^"|"$/g, "");
         prefilled = prefilled.trim();
+        // Inline text inputs do not get the "prompt-item" class.
         return '<input type="text" class="inline-text" placeholder="' + placeholder + '" value="' + prefilled + '" />';
       });
 
@@ -201,8 +204,9 @@
         htmlBody + '\n\n' +
         '<button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>\n\n' +
         '<div class="result-box" id="resultPrompt" hidden></div>\n\n' +
+        // Updated script block wrapped in an IIFE and including a getElementText helper.
         '<script>\n' +
-        '  // Helper: read a File object as text\n' +
+        '(function(){\n' +
         '  function readFileAsText(file) {\n' +
         '    return new Promise((resolve, reject) => {\n' +
         '      const reader = new FileReader();\n' +
@@ -211,6 +215,21 @@
         '      reader.readAsText(file);\n' +
         '    });\n' +
         '  }\n' +
+        '\n' +
+        '  function getElementText(el) {\n' +
+        '    let text = "";\n' +
+        '    el.childNodes.forEach(node => {\n' +
+        '      if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === "input") {\n' +
+        '        if (node.type === "text" || node.type === "number") {\n' +
+        '          text += node.value;\n' +
+        '        }\n' +
+        '      } else {\n' +
+        '        text += node.textContent;\n' +
+        '      }\n' +
+        '    });\n' +
+        '    return text.replace(/\\s+/g, " ").trim();\n' +
+        '  }\n' +
+        '\n' +
         '  document.getElementById("generateButton").addEventListener("click", async () => {\n' +
         '    const promptItems = [];\n' +
         '    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type=\'file\'], input[type=\'text\']");\n' +
@@ -219,11 +238,11 @@
         '      if (tag === "textarea") {\n' +
         '        promptItems.push(el.value);\n' +
         '      } else if (tag === "p") {\n' +
-        '        promptItems.push(el.textContent);\n' +
+        '        promptItems.push(getElementText(el));\n' +
         '      } else if (tag === "label") {\n' +
         '        const checkbox = el.querySelector("input[type=\'checkbox\']");\n' +
         '        if (checkbox && checkbox.checked) {\n' +
-        '          promptItems.push(el.textContent.trim());\n' +
+        '          promptItems.push(getElementText(el));\n' +
         '        }\n' +
         '      } else if (tag === "code") {\n' +
         '        promptItems.push(el.textContent);\n' +
@@ -242,12 +261,13 @@
         '    }\n' +
         '    const prompt = promptItems.join("\\n");\n' +
         '    navigator.clipboard.writeText(prompt)\n' +
-        '      .then(() => { alert("Prompt copied to clipboard!"); })\n' +
+        '      .then(() => { alert("Copied to clipboard!"); })\n' +
         '      .catch((err) => { alert("Failed to copy: " + err); });\n' +
         '    const resultPromptDiv = document.getElementById("resultPrompt");\n' +
         '    resultPromptDiv.hidden = false;\n' +
         '    resultPromptDiv.textContent = prompt;\n' +
         '  });\n' +
+        '})();\n' +
         '<\/script>\n' +
         '\n</body>\n' +
         '</html>';
