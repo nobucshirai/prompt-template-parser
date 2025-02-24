@@ -8,7 +8,7 @@ that can be compiled into a cohesive text prompt.
 
 In addition to standard Markdown syntax, the following custom elements are supported:
 
-- [[background text:prefilled text]] → Converts to a textbox input.
+- [[[background text:prefilled text]]] → Converts to a textbox input.
 - (()) → Converts to a file load input element.
 - [ ] and [x] → Converts to unchecked/checked checkboxes.
 - (* Comment *) → Renders as visible text in HTML but is excluded from clipboard copying.
@@ -65,13 +65,13 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
         md
     )
 
-    # 2. Textbox: [[placeholder:prefilled text]]
+    # 2. Textbox: [[[placeholder:prefilled text]]]
     def replace_textarea(match: re.Match) -> str:
         placeholder = match.group('placeholder').strip().strip('"')
         prefilled = match.group('prefilled').strip()
         return f'<textarea id="textbox" placeholder="{placeholder}">{prefilled}</textarea>'
     md = re.sub(
-        r'\[\[\s*(?P<placeholder>[^:]+?)\s*:\s*(?P<prefilled>.*?)\s*\]\]', 
+        r'\[\[\[\s*(?P<placeholder>[^:]+?)\s*:\s*(?P<prefilled>.*?)\s*\]\]\]', 
         replace_textarea, 
         md
     )
