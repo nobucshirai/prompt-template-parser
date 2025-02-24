@@ -54,11 +54,11 @@ textarea {
       if (tag === "textarea") {
         promptItems.push(el.value);
       } else if (tag === "p") {
-        promptItems.push(el.textContent);
+        promptItems.push(getElementText(el));
       } else if (tag === "label") {
         const checkbox = el.querySelector("input[type='checkbox']");
         if (checkbox && checkbox.checked) {
-          promptItems.push(el.textContent.trim());
+          promptItems.push(getElementText(el));
         }
       } else if (tag === "code") {
         promptItems.push(el.textContent);
@@ -92,6 +92,20 @@ textarea {
       reader.onerror = reject;
       reader.readAsText(file);
     });
+  }
+
+  function getElementText(el) {
+    let text = "";
+    el.childNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === "input") {
+        if (node.type === "text") {
+          text += node.value;
+        }
+      } else {
+        text += node.textContent;
+      }
+    });
+    return text.replace(/\s+/g, " ").trim();
   }
 })();
 </script>
