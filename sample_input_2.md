@@ -1,7 +1,7 @@
 #lang:en#
 # CLI Tool Prompt Generator
 
-[[Enter your prompt here:Please generate a python3 script to]]
+[[[Enter your prompt here:Please generate a python3 script to]]]
 
 I would like to add some additional specifications below.
 

@@ -4,48 +4,34 @@
   <meta charset="UTF-8" />
   <title>CLI Tool Prompt Generator</title>
   <style>
-    body {
+body {
       max-width: 800px;
       margin: 0 auto;
       font-family: sans-serif;
     }
-    h1 {
+h1 {
       margin-top: 1em;
       font-size: 2em;
     }
-    textarea {
+textarea {
       width: 100%;
       height: 100px;
       margin-bottom: 1em;
     }
-    button {
-      padding: 0.5em 1em;
-      cursor: pointer;
-    }
-    .result-box {
+.result-box {
       white-space: pre-wrap;
       border: 1px solid #ddd;
       padding: 1em;
       margin-top: 1em;
     }
-    .checkbox-container {
+.checkbox-container {
       margin-bottom: 1em;
     }
-    label {
+label {
       display: block;
       margin-bottom: 0.5em;
     }
-    .comment {
-      color: grey;
-    }
-    /* Inline number textbox style */
-    .inline-input {
-      width: 3em;
-      padding: 2px;
-      font-size: 1em;
-      text-align: center;
-    }
-  </style>
+</style>
 </head>
 <body>
 <div id="promptContent">
@@ -73,46 +59,16 @@
 <div class="result-box" id="resultPrompt" hidden></div>
 
 <script>
-  // Helper: read a File object as text, returning a Promise.
-  function readFileAsText(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-  }
-
-  // Helper: get combined text from an element.
-  // This function walks through the child nodes so that any inline inputs
-  // are replaced with their current value.
-  function getElementText(el) {
-    let text = "";
-    el.childNodes.forEach(node => {
-      if (node.nodeType === Node.ELEMENT_NODE &&
-          node.tagName.toLowerCase() === "input" &&
-          node.type !== "file") {
-        text += node.value;
-      } else {
-        text += node.textContent;
-      }
-    });
-    return text.replace(/\s+/g, " ").trim();
-  }
-
+(function(){
   document.getElementById("generateButton").addEventListener("click", async () => {
     const promptItems = [];
-    // Select all prompt items, verbatim code blocks, and file inputs.
-    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code, input[type='file']");
-    
-    // Process each element in document order.
+    const elements = document.querySelectorAll("#promptContent .prompt-item, pre code");
     for (const el of elements) {
       const tag = el.tagName.toLowerCase();
       if (tag === "textarea") {
         promptItems.push(el.value);
       } else if (tag === "p") {
-        // Use the helper so inline inputs are merged into the paragraph’s text.
-        promptItems.push(getElementText(el));
+        promptItems.push(el.textContent);
       } else if (tag === "label") {
         const checkbox = el.querySelector("input[type='checkbox']");
         if (checkbox && checkbox.checked) {
@@ -120,35 +76,19 @@
         }
       } else if (tag === "code") {
         promptItems.push(el.textContent);
-      } else if (tag === "input" && el.type === "file") {
-        // If a file is selected, read its content asynchronously.
-        if (el.files && el.files.length > 0) {
-          try {
-            const fileContent = await readFileAsText(el.files[0]);
-            promptItems.push(fileContent);
-          } catch (err) {
-            console.error("Error reading file:", err);
-          }
-        }
+      } else if (tag === "input" && el.type === "text") {
+        promptItems.push(el.value);
       }
     }
-    
     const prompt = promptItems.join("\n");
-    
-    // Copy to clipboard.
     navigator.clipboard.writeText(prompt)
-      .then(() => {
-        alert("Copied to clipboard!");
-      })
-      .catch((err) => {
-        alert("Failed to copy: " + err);
-      });
-    
-    // Also display the generated prompt.
+      .then(() => { alert("Copied to clipboard!"); })
+      .catch((err) => { alert("Failed to copy: " + err); });
     const resultPromptDiv = document.getElementById("resultPrompt");
     resultPromptDiv.hidden = false;
     resultPromptDiv.textContent = prompt;
   });
+})();
 </script>
 
 </body>
