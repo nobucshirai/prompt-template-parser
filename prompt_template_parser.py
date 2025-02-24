@@ -248,6 +248,8 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     has_inline_input = 'class="inline-text"' in html_body
 
     # Build the script block dynamically.
+    # Note: We no longer include input[type='number'] in the querySelector so that inline number inputs
+    # are processed as part of their parent element.
     script_parts = []
     script_parts.append("<script>\n(function(){\n")
     script_parts.append("  document.getElementById(\"generateButton\").addEventListener(\"click\", async () => {\n")
@@ -305,7 +307,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     script_parts.append("    let text = \"\";\n")
     script_parts.append("    el.childNodes.forEach(node => {\n")
     script_parts.append("      if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toLowerCase() === \"input\") {\n")
-    script_parts.append("        if (node.type === \"text\") {\n")
+    script_parts.append("        if (node.type === \"text\" || node.type === \"number\") {\n")
     script_parts.append("          text += node.value;\n")
     script_parts.append("        }\n")
     script_parts.append("      } else {\n")
