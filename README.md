@@ -1,5 +1,7 @@
 # Prompt Template Parser
 
+[![Pytest](https://github.com/nobucshirai/prompt-template-parser/actions/workflows/pytest.yml/badge.svg)](https://github.com/nobucshirai/prompt-template-parser/actions/workflows/pytest.yml)
+
 **Prompt Template Parser** is a Python-based tool that converts specially formatted extended Markdown files into interactive HTML pages. These pages let users dynamically generate structured prompts using a variety of custom input elements.
 
 ## Features
