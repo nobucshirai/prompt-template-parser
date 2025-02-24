@@ -14,7 +14,7 @@ I would like to add some additional specifications below.
 [x] - Suggest some potential filenames for the script.  
 [x] - Ask "(y)es/(n)o" before overwriting an existing file (default: no).  
 [x] - Add the following shebang:  
-{{{```
-#!/usr/bin/env python3
-```}}}
+```
+{{{#!/usr/bin/env python3}}}
+```
 
