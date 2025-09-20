@@ -55,6 +55,21 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
     lang: str = lang_match.group(1) if lang_match else 'en'
     md = re.sub(r'#lang:\w+#', '', md)
 
+    # Normalize language key for lookup (treat 'jp' and 'ja' the same)
+    lang_key = lang.lower()
+    if lang_key == 'jp':
+        lang_key = 'ja'
+
+    # Button labels per language (HTML-escaped where necessary)
+    BUTTON_LABELS = {
+        'en': "Generate Prompt &amp; Copy to Clipboard",
+        'ja': "プロンプトを生成してクリップボードにコピー",
+        'fr': "Générer le prompt et copier dans le presse-papiers",
+        'it': "Genera prompt e copia negli appunti",
+        'es': "Generar prompt y copiar al portapapeles",
+    }
+    button_label = BUTTON_LABELS.get(lang_key, BUTTON_LABELS['en'])
+
     title: str = "Document"
     body_parts: list[str] = []
 
@@ -329,7 +344,7 @@ def parse_custom_markdown(md: str) -> Tuple[str, str]:
 <body>
 {html_body}
 
-<button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>
+<button id="generateButton">{button_label}</button>
 
 <div class="result-box" id="resultPrompt" hidden></div>
 

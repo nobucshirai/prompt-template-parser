@@ -21,6 +21,43 @@ def test_language_specified():
     assert '<html lang="jp">' in html
     assert "#lang:" not in html
 
+def test_language_button_labels():
+    """Test that different languages produce correct button labels."""
+    # Test English (default)
+    md_en = "Test content"
+    html_en, _ = parse_custom_markdown(md_en)
+    assert "Generate Prompt &amp; Copy to Clipboard" in html_en
+    
+    # Test Japanese
+    md_ja = "#lang:ja#\nTest content"
+    html_ja, _ = parse_custom_markdown(md_ja)
+    assert "プロンプトを生成してクリップボードにコピー" in html_ja
+    
+    # Test Japanese with 'jp' code (should normalize to 'ja')
+    md_jp = "#lang:jp#\nTest content"
+    html_jp, _ = parse_custom_markdown(md_jp)
+    assert "プロンプトを生成してクリップボードにコピー" in html_jp
+    
+    # Test French
+    md_fr = "#lang:fr#\nTest content"
+    html_fr, _ = parse_custom_markdown(md_fr)
+    assert "Générer le prompt et copier dans le presse-papiers" in html_fr
+    
+    # Test Italian
+    md_it = "#lang:it#\nTest content"
+    html_it, _ = parse_custom_markdown(md_it)
+    assert "Genera prompt e copia negli appunti" in html_it
+    
+    # Test Spanish
+    md_es = "#lang:es#\nTest content"
+    html_es, _ = parse_custom_markdown(md_es)
+    assert "Generar prompt y copiar al portapapeles" in html_es
+    
+    # Test unsupported language (should fall back to English)
+    md_unsupported = "#lang:de#\nTest content"
+    html_unsupported, _ = parse_custom_markdown(md_unsupported)
+    assert "Generate Prompt &amp; Copy to Clipboard" in html_unsupported
+
 def test_inline_integer():
     md = "Value: << 42 >>"
     html, _ = parse_custom_markdown(md)
