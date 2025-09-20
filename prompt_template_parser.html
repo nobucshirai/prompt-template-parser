@@ -64,6 +64,20 @@
         lang = langMatch[1];
         md = md.replace(/#lang:\w+#/, "");
       }
+
+      // --- Added: normalize 'jp' to 'ja' and localize button label like the Python version ---
+      let langKey = String(lang).toLowerCase();
+      if (langKey === "jp") langKey = "ja";
+      const BUTTON_LABELS = {
+        en: "Generate Prompt &amp; Copy to Clipboard",
+        ja: "プロンプトを生成してクリップボードにコピー",
+        fr: "Générer le prompt et copier dans le presse-papiers",
+        it: "Genera prompt e copia negli appunti",
+        es: "Generar prompt y copiar al portapapeles",
+      };
+      const buttonLabel = BUTTON_LABELS[langKey] || BUTTON_LABELS.en;
+      // --- end added ---
+
       let title = "Document";
       let bodyParts = [];
 
@@ -202,7 +216,7 @@
         '</head>\n' +
         '<body>\n' +
         htmlBody + '\n\n' +
-        '<button id="generateButton">Generate Prompt &amp; Copy to Clipboard</button>\n\n' +
+        '<button id="generateButton">' + buttonLabel + '</button>\n\n' +
         '<div class="result-box" id="resultPrompt" hidden></div>\n\n' +
         // Updated script block wrapped in an IIFE and including a getElementText helper.
         '<script>\n' +
